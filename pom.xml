@@ -47,6 +47,15 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <mainClass>com.roshini.simplekafka.storage.MessageLogTest</mainClass>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
