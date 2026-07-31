@@ -13,8 +13,21 @@ public class MessageLog {
 
     public MessageLog(String filePath) throws IOException {
         this.file = new RandomAccessFile(filePath, "rw");
+        this.nextOffset = recoverOffset();
         this.file.seek(file.length());
-        this.nextOffset = 0;
+    }
+
+    private long recoverOffset() throws IOException {
+        file.seek(0);
+        long count = 0;
+
+        while (file.getFilePointer() < file.length()) {
+            int length = file.readInt();
+            file.seek(file.getFilePointer() + length);
+            count++;
+        }
+
+        return count;
     }
 
     public synchronized long append(Message message) throws IOException {

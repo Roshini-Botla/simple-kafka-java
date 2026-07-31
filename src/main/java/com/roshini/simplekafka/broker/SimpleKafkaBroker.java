@@ -8,9 +8,14 @@ import java.net.Socket;
 import com.roshini.simplekafka.protocol.Message;
 import com.roshini.simplekafka.protocol.MessageSerializer;
 
+import com.roshini.simplekafka.storage.MessageLog;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class SimpleKafkaBroker {
 
     private final int port;
+    private final Map<String, MessageLog> logs = new ConcurrentHashMap<>();
 
     public SimpleKafkaBroker(int port) {
         this.port = port;
@@ -37,7 +42,12 @@ public class SimpleKafkaBroker {
 
             Message message = MessageSerializer.deserialize(data);
 
-            System.out.println("Received message -> Topic: " + message.getTopic()
+            MessageLog log = getOrCreateLog(message.getTopic(), message.getPartition());
+            long assignedOffset = log.append(message);
+
+            System.out.println("Stored message -> Topic: " + message.getTopic()
+                    + ", Partition: " + message.getPartition()
+                    + ", Offset: " + assignedOffset
                     + ", Key: " + message.getKey()
                     + ", Value: " + new String(message.getValue()));
 
@@ -50,6 +60,17 @@ public class SimpleKafkaBroker {
     public static void main(String[] args) throws IOException {
         SimpleKafkaBroker broker = new SimpleKafkaBroker(9092);
         broker.start();
+    }
+
+    private MessageLog getOrCreateLog(String topic, int partition) throws IOException {
+        String key = topic + "-" + partition;
+        return logs.computeIfAbsent(key, k -> {
+            try {
+                return new MessageLog(key + ".log");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
 }
