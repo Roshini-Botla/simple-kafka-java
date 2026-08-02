@@ -1,6 +1,7 @@
 package com.roshini.simplekafka.broker;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -36,26 +37,65 @@ public class SimpleKafkaBroker {
         try {
             DataInputStream in = new DataInputStream(clientSocket.getInputStream());
 
-            int length = in.readInt();
-            byte[] data = new byte[length];
-            in.readFully(data);
+            byte requestType = in.readByte();
 
-            Message message = MessageSerializer.deserialize(data);
-
-            MessageLog log = getOrCreateLog(message.getTopic(), message.getPartition());
-            long assignedOffset = log.append(message);
-
-            System.out.println("Stored message -> Topic: " + message.getTopic()
-                    + ", Partition: " + message.getPartition()
-                    + ", Offset: " + assignedOffset
-                    + ", Key: " + message.getKey()
-                    + ", Value: " + new String(message.getValue()));
+            if (requestType == 0) {
+                handleProduceRequest(in, clientSocket);
+            } else if (requestType == 1) {
+                handleConsumeRequest(in, clientSocket);
+            } else {
+                System.out.println("Unknown request type: " + requestType);
+            }
 
             clientSocket.close();
         } catch (IOException e) {
             System.out.println("Error handling client: " + e.getMessage());
         }
     }
+
+    private void handleProduceRequest(DataInputStream in, Socket clientSocket) throws IOException {
+        int length = in.readInt();
+        byte[] data = new byte[length];
+        in.readFully(data);
+
+        Message message = MessageSerializer.deserialize(data);
+
+        MessageLog log = getOrCreateLog(message.getTopic(), message.getPartition());
+        long assignedOffset = log.append(message);
+
+        System.out.println("Stored message -> Topic: " + message.getTopic()
+                + ", Partition: " + message.getPartition()
+                + ", Offset: " + assignedOffset
+                + ", Key: " + message.getKey()
+                + ", Value: " + new String(message.getValue()));
+    }
+
+    private void handleConsumeRequest(DataInputStream in, Socket clientSocket) throws IOException {
+        String topic = in.readUTF();
+        int partition = in.readInt();
+        long offset = in.readLong();
+
+        MessageLog log = getOrCreateLog(topic, partition);
+        Message message = log.read(offset);
+
+        DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
+
+        if (message == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            byte[] data = MessageSerializer.serialize(message);
+            out.writeInt(data.length);
+            out.write(data);
+        }
+
+        out.flush();
+
+        System.out.println("Consume request -> Topic: " + topic
+                + ", Partition: " + partition
+                + ", Offset: " + offset
+                + ", Found: " + (message != null));
+    }  
 
     public static void main(String[] args) throws IOException {
         SimpleKafkaBroker broker = new SimpleKafkaBroker(9092);

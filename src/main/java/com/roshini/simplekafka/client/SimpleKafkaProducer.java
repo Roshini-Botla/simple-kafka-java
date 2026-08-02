@@ -18,6 +18,8 @@ public class SimpleKafkaProducer {
         try (Socket socket = new Socket(host, port)) {
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 
+            out.writeByte(0);
+
             byte[] data = MessageSerializer.serialize(message);
 
             out.writeInt(data.length);
