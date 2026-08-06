@@ -97,8 +97,20 @@ public class SimpleKafkaBroker {
                 + ", Found: " + (message != null));
     }  
 
-    public static void main(String[] args) throws IOException {
-        SimpleKafkaBroker broker = new SimpleKafkaBroker(9092);
+   public static void main(String[] args) throws IOException {
+        int brokerId = 1;
+        String host = "localhost";
+        int port = 9092;
+
+        SimpleKafkaBroker broker = new SimpleKafkaBroker(port);
+
+        try {
+            ZkRegistration zkRegistration = new ZkRegistration("localhost:2181");
+            zkRegistration.registerBroker(brokerId, host, port);
+        } catch (Exception e) {
+            System.out.println("Failed to register with ZooKeeper: " + e.getMessage());
+        }
+
         broker.start();
     }
 
