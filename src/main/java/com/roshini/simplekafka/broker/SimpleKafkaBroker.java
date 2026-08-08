@@ -17,10 +17,12 @@ public class SimpleKafkaBroker {
 
     private final int port;
     private final Map<String, MessageLog> logs = new ConcurrentHashMap<>();
+    private final int brokerId;
 
-    public SimpleKafkaBroker(int port) {
-        this.port = port;
-    }
+    public SimpleKafkaBroker(int port, int brokerId) {
+    this.port = port;
+    this.brokerId = brokerId;
+}
 
     public void start() throws IOException {
         ServerSocket serverSocket = new ServerSocket(port);
@@ -98,11 +100,11 @@ public class SimpleKafkaBroker {
     }  
 
    public static void main(String[] args) throws IOException {
-        int brokerId = 1;
+        int brokerId = args.length > 0 ? Integer.parseInt(args[0]) : 1;
+        int port = args.length > 1 ? Integer.parseInt(args[1]) : 9092;
         String host = "localhost";
-        int port = 9092;
 
-        SimpleKafkaBroker broker = new SimpleKafkaBroker(port);
+        SimpleKafkaBroker broker = new SimpleKafkaBroker(port, brokerId);
 
         try {
             ZkRegistration zkRegistration = new ZkRegistration("localhost:2181");
@@ -114,11 +116,13 @@ public class SimpleKafkaBroker {
         broker.start();
     }
 
-    private MessageLog getOrCreateLog(String topic, int partition) throws IOException {
+   private MessageLog getOrCreateLog(String topic, int partition) throws IOException {
         String key = topic + "-" + partition;
         return logs.computeIfAbsent(key, k -> {
             try {
-                return new MessageLog(key + ".log");
+                String dir = "broker-" + brokerId;
+                new java.io.File(dir).mkdirs();
+                return new MessageLog(dir + "/" + key + ".log");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
